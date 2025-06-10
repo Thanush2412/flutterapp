@@ -1,92 +1,64 @@
 require('dotenv').config();
-const express = require('express');
 const mongoose = require('mongoose');
+const express = require('express');
 const cors = require('cors');
-const morgan = require('morgan');
 const helmet = require('helmet');
+const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
-const config = require('./config/config');
-const app = require('./app');
 
 // Import routes
+const apiRoutes = require('./routes/api.routes');
 const authRoutes = require('./routes/auth.routes');
 const userRoutes = require('./routes/user.routes');
 const deviceRoutes = require('./routes/device.routes');
 
+// Create Express app
 const app = express();
 
-// Security Middleware
-app.use(helmet()); // Adds various HTTP headers for security
+// Security middleware
+app.use(helmet());
 app.use(cors({
-  origin: config.security.corsOrigin,
-  methods: config.security.corsMethods,
-  allowedHeaders: config.security.corsAllowedHeaders,
-  credentials: true
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
 // Rate limiting
 const limiter = rateLimit({
-  windowMs: config.security.rateLimitWindow,
-  max: config.security.rateLimitMax,
-  message: 'Too many requests from this IP, please try again later.'
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100 // limit each IP to 100 requests per windowMs
 });
 app.use(limiter);
 
-// Basic Middleware
-app.use(express.json({ limit: '10kb' })); // Limit body size
-app.use(morgan(config.logging.format));
+// Body parsing middleware
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-// Routes
-app.use(`${config.api.prefix}/${config.api.version}/auth`, authRoutes);
-app.use(`${config.api.prefix}/${config.api.version}/users`, userRoutes);
-app.use(`${config.api.prefix}/${config.api.version}/devices`, deviceRoutes);
+// Logging middleware
+app.use(morgan('dev'));
 
-// Health check endpoint
-app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'ok', 
-    timestamp: new Date(),
-    environment: config.nodeEnv,
-    version: config.api.version,
-    mongodb: {
-      connected: mongoose.connection.readyState === 1,
-      state: mongoose.connection.readyState
-    }
+// API routes
+app.use('/api/v1', apiRoutes);
+app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1/users', userRoutes);
+app.use('/api/v1/devices', deviceRoutes);
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(err.status || 500).json({
+    status: 'error',
+    message: err.message || 'Internal server error'
   });
 });
 
-// Database test endpoint (only in development)
-if (config.nodeEnv === 'development') {
-  app.get(`${config.api.prefix}/test-db`, async (req, res) => {
-    try {
-      if (mongoose.connection.readyState !== 1) {
-        return res.status(500).json({ message: 'Database not connected' });
-      }
-
-      const User = require('./models/user.model');
-      const testUser = new User({
-        email: 'test@example.com',
-        password: 'password123',
-        name: 'Test User',
-        isAdmin: false
-      });
-
-      await testUser.save();
-      await User.deleteOne({ email: 'test@example.com' }); // Clean up test user
-
-      res.json({
-        message: 'Database test successful',
-        connection: 'Connected'
-      });
-    } catch (error) {
-      console.error('Database test error:', error);
-      res.status(500).json({
-        message: 'Database test failed',
-        error: error.message
-      });
-    }
+// 404 handler
+app.use((req, res) => {
+  res.status(404).json({
+    status: 'error',
+    message: 'Route not found'
   });
-}
+});
 
 // MongoDB Connection
 const connectDB = async () => {
@@ -137,19 +109,8 @@ if (process.env.NODE_ENV !== 'production') {
   app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
     console.log(`Environment: ${process.env.NODE_ENV}`);
-    console.log(`API URL: http://localhost:${PORT}${config.api.prefix}/${config.api.version}`);
   });
 }
 
 // Export for Vercel
-module.exports = app;
-
-// Error handling middleware
-app.use((err, req, res, next) => {
-  console.error('Error:', err);
-  res.status(500).json({ 
-    message: config.nodeEnv === 'production' 
-      ? 'Internal server error' 
-      : err.message 
-  });
-}); 
+module.exports = app; 
