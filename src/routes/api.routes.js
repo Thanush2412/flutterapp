@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 
-// Simple test route
+// Test route
 router.get('/test', (req, res) => {
   res.json({
     status: 'success',
