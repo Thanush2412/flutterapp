@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -5,6 +6,7 @@ const morgan = require('morgan');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const config = require('./config/config');
+const app = require('./app');
 
 // Import routes
 const authRoutes = require('./routes/auth.routes');
@@ -86,80 +88,46 @@ if (config.nodeEnv === 'development') {
   });
 }
 
-// MongoDB connection with retry and secure options
-const connectWithRetry = async () => {
-  try {
-    console.log('Attempting to connect to MongoDB...');
-    console.log('MongoDB URI:', config.mongodb.uri);
-    
-    const options = {
-      ...config.mongodb.options,
-      serverSelectionTimeoutMS: 5000, // Timeout after 5s instead of 30s
-      socketTimeoutMS: 45000, // Close sockets after 45s of inactivity
-    };
-
-    await mongoose.connect(config.mongodb.uri, options);
-    console.log('Successfully connected to MongoDB');
-    
-    // Log connection details
-    console.log('MongoDB Connection Details:');
-    console.log('- Database:', mongoose.connection.name);
-    console.log('- Host:', mongoose.connection.host);
-    console.log('- Port:', mongoose.connection.port);
-    console.log('- State:', mongoose.connection.readyState);
-  } catch (err) {
-    console.error('MongoDB connection error:', err);
-    console.log('Retrying connection in 5 seconds...');
-    setTimeout(connectWithRetry, 5000);
-  }
-};
-
-// Handle MongoDB connection events
-mongoose.connection.on('connected', () => {
-  console.log('Mongoose connected to MongoDB');
+// MongoDB Connection
+mongoose.connect(process.env.MONGODB_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+  tls: true,
+  tlsAllowInvalidCertificates: false,
+  tlsAllowInvalidHostnames: false,
+  retryWrites: true,
+  w: 'majority'
+})
+.then(() => {
+  console.log('Connected to MongoDB');
+})
+.catch((err) => {
+  console.error('MongoDB connection error:', err);
+  process.exit(1);
 });
 
-mongoose.connection.on('error', (err) => {
-  console.error('Mongoose connection error:', err);
+// Error handling for uncaught exceptions
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:', err);
+  process.exit(1);
 });
 
-mongoose.connection.on('disconnected', () => {
-  console.log('Mongoose disconnected from MongoDB');
-  // Attempt to reconnect
-  setTimeout(connectWithRetry, 5000);
-});
-
-// Handle application shutdown
-process.on('SIGINT', async () => {
-  try {
-    await mongoose.connection.close();
-    console.log('MongoDB connection closed through app termination');
-    process.exit(0);
-  } catch (err) {
-    console.error('Error during MongoDB disconnection:', err);
-    process.exit(1);
-  }
+// Error handling for unhandled promise rejections
+process.on('unhandledRejection', (err) => {
+  console.error('Unhandled Rejection:', err);
+  process.exit(1);
 });
 
 // Start server
-const startServer = async () => {
-  try {
-    // First connect to MongoDB
-    await connectWithRetry();
-    
-    // Then start the server
-    app.listen(config.port, () => {
-      console.log(`Server is running on port ${config.port}`);
-      console.log(`Environment: ${config.nodeEnv}`);
-      console.log(`API Version: ${config.api.version}`);
-    });
-  } catch (err) {
-    console.error('Failed to start server:', err);
-    process.exit(1);
-  }
-};
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
+  console.log(`Environment: ${process.env.NODE_ENV}`);
+  console.log(`API URL: http://localhost:${PORT}${config.api.prefix}/${config.api.version}`);
+});
 
-startServer();
+// Export for Vercel
+module.exports = app;
 
 // Error handling middleware
 app.use((err, req, res, next) => {

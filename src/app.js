@@ -10,6 +10,7 @@ const authRoutes = require('./routes/auth.routes');
 const userRoutes = require('./routes/user.routes');
 const deviceRoutes = require('./routes/device.routes');
 const healthRoutes = require('./routes/health.routes');
+const testRoutes = require('./routes/test.routes');
 
 const app = express();
 
@@ -35,6 +36,9 @@ app.use(express.urlencoded({ extended: true }));
 
 // Logging middleware
 app.use(morgan(config.logging.format));
+
+// Test route (no auth required)
+app.use('/api/v1/test', testRoutes);
 
 // Health check route (no auth required)
 app.use('/api/v1/health', healthRoutes);
