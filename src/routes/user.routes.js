@@ -6,10 +6,59 @@ const mongoose = require('mongoose');
 
 const router = express.Router();
 
+// Create new user (admin only)
+router.post('/', adminAuth, async (req, res) => {
+  try {
+    const { name, email, password, isAdmin, parentUserId } = req.body;
+
+    // Check if user with email already exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ message: 'User with this email already exists' });
+    }
+
+    // If parentUserId is provided, verify parent user exists
+    let parentUser = null;
+    if (parentUserId) {
+      parentUser = await User.findById(parentUserId);
+      if (!parentUser) {
+        return res.status(404).json({ message: 'Parent user not found' });
+      }
+    }
+
+    // Create new user
+    const user = new User({
+      name,
+      email,
+      password,
+      isAdmin: isAdmin || false,
+      parentUser: parentUserId
+    });
+
+    await user.save();
+
+    // If parent user exists, add this user to parent's subUsers
+    if (parentUser) {
+      parentUser.subUsers.push(user._id);
+      await parentUser.save();
+    }
+
+    // Return created user without password
+    const createdUser = await User.findById(user._id).select('-password');
+    res.status(201).json(createdUser);
+  } catch (error) {
+    console.error('Error creating user:', error);
+    res.status(500).json({ message: 'Error creating user' });
+  }
+});
+
 // Get all users (admin only)
 router.get('/', adminAuth, async (req, res) => {
   try {
-    const users = await User.find().select('-password');
+    const users = await User.find()
+      .select('-password')
+      .populate('parentUser', 'name email')
+      .populate('subUsers', 'name email');
     res.json(users);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching users' });

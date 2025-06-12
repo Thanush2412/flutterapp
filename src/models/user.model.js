@@ -28,7 +28,15 @@ const userSchema = new mongoose.Schema({
   }],
   profileImageUrl: {
     type: String
-  }
+  },
+  parentUser: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  subUsers: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }]
 }, {
   timestamps: true,
   toJSON: {
