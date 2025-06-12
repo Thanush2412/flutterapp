@@ -47,6 +47,12 @@ app.use(express.urlencoded({ extended: true }));
 // Logging middleware
 app.use(morgan('dev'));
 
+// Debug middleware to log all requests
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`);
+  next();
+});
+
 // API routes
 app.use('/api/v1', apiRoutes);
 app.use('/api/v1/auth', authRoutes);
@@ -55,7 +61,8 @@ app.use('/api/v1/devices', deviceRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-  console.error(err.stack);
+  console.error('Error:', err);
+  console.error('Stack:', err.stack);
   res.status(err.status || 500).json({
     status: 'error',
     message: err.message || 'Internal server error'
@@ -64,6 +71,7 @@ app.use((err, req, res, next) => {
 
 // 404 handler
 app.use((req, res) => {
+  console.log(`404 Not Found: ${req.method} ${req.originalUrl}`);
   res.status(404).json({
     status: 'error',
     message: 'Route not found'

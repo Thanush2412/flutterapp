@@ -14,6 +14,12 @@ const validateObjectId = (id) => {
   }
 };
 
+// Debug middleware to log all requests
+router.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`);
+  next();
+});
+
 // Get all devices (admin only)
 router.get('/', adminAuth, async (req, res) => {
   try {
@@ -71,7 +77,7 @@ router.get('/my-devices', auth, async (req, res) => {
   }
 });
 
-// Bulk import devices (admin only)
+// Bulk import devices (admin only) - MUST be before /:id route
 router.post('/bulk-import', adminAuth, async (req, res) => {
   try {
     console.log('=== POST /api/devices/bulk-import ===');
