@@ -71,6 +71,68 @@ router.get('/my-devices', auth, async (req, res) => {
   }
 });
 
+// Bulk import devices (admin only)
+router.post('/bulk-import', adminAuth, async (req, res) => {
+  try {
+    console.log('=== POST /api/devices/bulk-import ===');
+    console.log('User:', req.user.email);
+    console.log('Request body:', req.body);
+
+    const { devices } = req.body;
+
+    if (!Array.isArray(devices)) {
+      return res.status(400).json({ 
+        message: 'Invalid request format. Expected an array of devices.' 
+      });
+    }
+
+    // Validate each device
+    const validationErrors = [];
+    devices.forEach((device, index) => {
+      if (!device.deviceId || !device.name || !device.type || !device.macAddress || !device.location) {
+        validationErrors.push(`Device at index ${index} is missing required fields`);
+      }
+    });
+
+    if (validationErrors.length > 0) {
+      return res.status(400).json({ 
+        message: 'Validation failed', 
+        errors: validationErrors 
+      });
+    }
+
+    // Check for duplicate deviceIds
+    const deviceIds = devices.map(d => d.deviceId);
+    const existingDevices = await Device.find({ deviceId: { $in: deviceIds } });
+    if (existingDevices.length > 0) {
+      return res.status(400).json({ 
+        message: 'Some deviceIds already exist', 
+        existingDevices: existingDevices.map(d => d.deviceId) 
+      });
+    }
+
+    // Create devices
+    const createdDevices = await Device.insertMany(devices);
+    console.log(`Created ${createdDevices.length} devices`);
+
+    // Transform the response
+    const transformedDevices = createdDevices.map(device => device.toJSON());
+    console.log('Transformed devices:', transformedDevices);
+
+    res.status(201).json({
+      message: `Successfully imported ${createdDevices.length} devices`,
+      devices: transformedDevices
+    });
+  } catch (error) {
+    console.error('Error in bulk import:', error);
+    console.error('Stack trace:', error.stack);
+    res.status(500).json({ 
+      message: 'Error importing devices',
+      error: error.message
+    });
+  }
+});
+
 // Get device by ID
 router.get('/:id', auth, async (req, res) => {
   try {
