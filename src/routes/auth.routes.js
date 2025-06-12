@@ -35,10 +35,12 @@ router.post('/register', async (req, res) => {
         id: user._id,
         email: user.email,
         name: user.name,
-        isAdmin: user.isAdmin
+        isAdmin: user.isAdmin,
+        assignedDevices: user.assignedDevices || []
       }
     });
   } catch (error) {
+    console.error('Registration error:', error);
     res.status(500).json({ message: 'Error creating user' });
   }
 });
@@ -82,7 +84,8 @@ router.post('/login', async (req, res) => {
         id: user._id,
         email: user.email,
         name: user.name,
-        isAdmin: user.isAdmin
+        isAdmin: user.isAdmin,
+        assignedDevices: user.assignedDevices || []
       }
     });
   } catch (error) {
@@ -98,8 +101,15 @@ router.get('/me', auth, async (req, res) => {
       .select('-password')
       .populate('assignedDevices');
     
-    res.json(user);
+    res.json({
+      id: user._id,
+      email: user.email,
+      name: user.name,
+      isAdmin: user.isAdmin,
+      assignedDevices: user.assignedDevices || []
+    });
   } catch (error) {
+    console.error('Get user error:', error);
     res.status(500).json({ message: 'Error fetching user data' });
   }
 });

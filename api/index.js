@@ -14,18 +14,29 @@ const deviceRoutes = require('../src/routes/device.routes');
 // Create Express app
 const app = express();
 
+// Trust proxy
+app.set('trust proxy', 1);
+
 // Security middleware
-app.use(helmet());
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  crossOriginOpenerPolicy: { policy: "unsafe-none" },
+  crossOriginEmbedderPolicy: false
+}));
+
 app.use(cors({
   origin: '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+  credentials: true
 }));
 
 // Rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 100
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false
 });
 app.use(limiter);
 
@@ -60,6 +71,9 @@ app.use((req, res) => {
 });
 
 // MongoDB Connection
+console.log('Attempting to connect to MongoDB...');
+console.log('MongoDB URI exists:', !!process.env.MONGODB_URI);
+
 mongoose.connect(process.env.MONGODB_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
@@ -67,10 +81,23 @@ mongoose.connect(process.env.MONGODB_URI, {
   tlsAllowInvalidCertificates: false,
   tlsAllowInvalidHostnames: false,
   retryWrites: true,
-  w: 'majority'
+  w: 'majority',
+  serverSelectionTimeoutMS: 5000,
+  socketTimeoutMS: 45000,
 })
-.then(() => console.log('Connected to MongoDB'))
-.catch(err => console.error('MongoDB connection error:', err));
+.then(() => {
+  console.log('Successfully connected to MongoDB');
+  console.log('Connection state:', mongoose.connection.readyState);
+})
+.catch(err => {
+  console.error('MongoDB connection error details:', {
+    name: err.name,
+    message: err.message,
+    code: err.code,
+    state: mongoose.connection.readyState
+  });
+  process.exit(1); // Exit if we can't connect to the database
+});
 
 // Export the Express app
 module.exports = app; 
