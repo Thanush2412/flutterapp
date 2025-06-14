@@ -18,10 +18,6 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: true
   },
-  isAdmin: {
-    type: Boolean,
-    default: false
-  },
   role: {
     type: String,
     enum: ['super-admin', 'admin', 'user'],
@@ -44,6 +40,7 @@ const userSchema = new mongoose.Schema({
     transform: function(doc, ret) {
       ret.id = ret._id;
       ret.uid = ret._id;
+      ret.isAdmin = ret.role === 'admin' || ret.role === 'super-admin';
       delete ret._id;
       delete ret.__v;
       delete ret.password;

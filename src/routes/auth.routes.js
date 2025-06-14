@@ -8,7 +8,7 @@ const router = express.Router();
 // Register
 router.post('/register', async (req, res) => {
   try {
-    const { email, password, name } = req.body;
+    const { email, password, name, role } = req.body;
     
     const existingUser = await User.findOne({ email });
     if (existingUser) {
@@ -18,7 +18,8 @@ router.post('/register', async (req, res) => {
     const user = new User({
       email,
       password,
-      name
+      name,
+      role: role || 'user' // Default to 'user' if no role specified
     });
 
     await user.save();
@@ -35,8 +36,8 @@ router.post('/register', async (req, res) => {
         id: user._id,
         email: user.email,
         name: user.name,
-        isAdmin: user.isAdmin,
-        assignedDevices: user.assignedDevices || []
+        role: user.role,
+        isAdmin: user.role === 'admin' || user.role === 'super-admin'
       }
     });
   } catch (error) {
@@ -59,7 +60,7 @@ router.post('/login', async (req, res) => {
     console.log('User found:', { 
       id: user._id,
       email: user.email,
-      isAdmin: user.isAdmin,
+      role: user.role,
       hasPassword: !!user.password
     });
 
@@ -84,8 +85,8 @@ router.post('/login', async (req, res) => {
         id: user._id,
         email: user.email,
         name: user.name,
-        isAdmin: user.isAdmin,
-        assignedDevices: user.assignedDevices || []
+        role: user.role,
+        isAdmin: user.role === 'admin' || user.role === 'super-admin'
       }
     });
   } catch (error) {
@@ -97,16 +98,23 @@ router.post('/login', async (req, res) => {
 // Get current user
 router.get('/me', auth, async (req, res) => {
   try {
+    console.log('Getting user data for:', req.user._id);
     const user = await User.findById(req.user._id)
       .select('-password')
       .populate('assignedDevices');
     
+    if (!user) {
+      console.log('User not found in /me endpoint');
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    console.log('User data retrieved successfully');
     res.json({
       id: user._id,
       email: user.email,
       name: user.name,
-      isAdmin: user.isAdmin,
-      assignedDevices: user.assignedDevices || []
+      role: user.role,
+      isAdmin: user.role === 'admin' || user.role === 'super-admin'
     });
   } catch (error) {
     console.error('Get user error:', error);
