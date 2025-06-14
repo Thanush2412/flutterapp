@@ -371,4 +371,85 @@ router.delete('/:userId/sub-users/:subUserId', auth, async (req, res) => {
   }
 });
 
+// Bulk assign devices to user
+router.post('/:userId/assign-devices', auth, async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+  
+  try {
+    const { userId } = req.params;
+    const { deviceIds } = req.body;
+
+    // Validate input
+    if (!deviceIds || !Array.isArray(deviceIds) || deviceIds.length === 0) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Invalid device IDs provided'
+      });
+    }
+
+    // Validate all IDs are valid MongoDB IDs
+    const invalidIds = deviceIds.filter(id => !mongoose.Types.ObjectId.isValid(id));
+    if (invalidIds.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid device IDs',
+        invalidIds
+      });
+    }
+
+    // Check user exists
+    const user = await User.findById(userId).session(session);
+    if (!user) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'User not found' 
+      });
+    }
+
+    // Get available devices
+    const availableDevices = await Device.find({
+      _id: { $in: deviceIds },
+      $or: [
+        { assignedTo: { $exists: false } },
+        { assignedTo: null }
+      ]
+    }).session(session);
+
+    if (availableDevices.length !== deviceIds.length) {
+      const assignedDevices = deviceIds.filter(id => 
+        !availableDevices.some(d => d._id.toString() === id)
+      );
+      return res.status(400).json({
+        success: false,
+        message: 'Some devices are already assigned',
+        assignedDevices
+      });
+    }
+
+    // Assign devices
+    await Device.updateMany(
+      { _id: { $in: deviceIds } },
+      { $set: { assignedTo: userId } },
+      { session }
+    );
+
+    await session.commitTransaction();
+    res.json({ 
+      success: true,
+      message: 'Devices assigned successfully',
+      count: deviceIds.length
+    });
+  } catch (error) {
+    await session.abortTransaction();
+    console.error('Bulk assignment error:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Server error during device assignment'
+    });
+  } finally {
+    session.endSession();
+  }
+});
+
 module.exports = router; 
