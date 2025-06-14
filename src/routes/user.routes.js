@@ -250,4 +250,125 @@ router.put('/profile/password', auth, async (req, res) => {
   }
 });
 
+// Get sub-users for a specific user
+router.get('/:userId/sub-users', auth, async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    // Check if the requesting user has permission
+    if (req.user._id.toString() !== userId && !req.user.isAdmin) {
+      return res.status(403).json({
+        status: 'error',
+        message: 'Not authorized to view these sub-users'
+      });
+    }
+
+    // Find all users where parentUser matches the given userId
+    const subUsers = await User.find({ parentUser: userId })
+      .select('-password')
+      .lean();
+
+    res.json({
+      status: 'success',
+      data: subUsers
+    });
+  } catch (error) {
+    console.error('Error fetching sub-users:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Internal server error'
+    });
+  }
+});
+
+// Create a new sub-user
+router.post('/:userId/sub-users', auth, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { name, email, password } = req.body;
+
+    // Check if the requesting user has permission
+    if (req.user._id.toString() !== userId && !req.user.isAdmin) {
+      return res.status(403).json({
+        status: 'error',
+        message: 'Not authorized to create sub-users'
+      });
+    }
+
+    // Check if email already exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Email already registered'
+      });
+    }
+
+    // Create new sub-user
+    const subUser = new User({
+      name,
+      email,
+      password,
+      parentUser: userId,
+      isAdmin: false
+    });
+
+    await subUser.save();
+
+    // Return user without password
+    const userResponse = subUser.toObject();
+    delete userResponse.password;
+
+    res.status(201).json({
+      status: 'success',
+      data: userResponse
+    });
+  } catch (error) {
+    console.error('Error creating sub-user:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Internal server error'
+    });
+  }
+});
+
+// Delete a sub-user
+router.delete('/:userId/sub-users/:subUserId', auth, async (req, res) => {
+  try {
+    const { userId, subUserId } = req.params;
+
+    // Check if the requesting user has permission
+    if (req.user._id.toString() !== userId && !req.user.isAdmin) {
+      return res.status(403).json({
+        status: 'error',
+        message: 'Not authorized to delete sub-users'
+      });
+    }
+
+    // Find and delete the sub-user
+    const subUser = await User.findOneAndDelete({
+      _id: subUserId,
+      parentUser: userId
+    });
+
+    if (!subUser) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Sub-user not found'
+      });
+    }
+
+    res.json({
+      status: 'success',
+      message: 'Sub-user deleted successfully'
+    });
+  } catch (error) {
+    console.error('Error deleting sub-user:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Internal server error'
+    });
+  }
+});
+
 module.exports = router; 

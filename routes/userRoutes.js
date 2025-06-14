@@ -7,29 +7,8 @@ const subUsersController = require('../controllers/subUsersController');
 // User routes
 router.post('/register', userController.register);
 router.post('/login', userController.login);
-router.get('/profile', auth, async (req, res) => {
-  try {
-    const user = await require('../models/User').findById(req.user._id).select('-password');
-    if (!user) return res.status(404).json({ message: 'User not found' });
-    res.json(user);
-  } catch (error) {
-    res.status(500).json({ message: 'Error fetching profile' });
-  }
-});
-router.put('/profile/update', auth, async (req, res) => {
-  try {
-    const { name, email } = req.body;
-    const user = await require('../models/User').findByIdAndUpdate(
-      req.user._id,
-      { name, email },
-      { new: true }
-    ).select('-password');
-    if (!user) return res.status(404).json({ message: 'User not found' });
-    res.json(user);
-  } catch (error) {
-    res.status(500).json({ message: 'Error updating profile' });
-  }
-});
+router.get('/profile', auth, userController.getProfile);
+router.put('/profile/update', auth, userController.updateProfile);
 router.put('/profile/password', auth, userController.changePassword);
 
 // Admin routes
