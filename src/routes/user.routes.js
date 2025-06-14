@@ -3,6 +3,9 @@ const User = require('../models/user.model');
 const Device = require('../models/device.model');
 const { auth, adminAuth } = require('../middleware/auth.middleware');
 const mongoose = require('mongoose');
+const { validateDeviceAssignment } = require('../middleware/validateDeviceAssignment');
+const DeviceService = require('../services/device.service');
+const UserService = require('../services/user.service');
 
 const router = express.Router();
 
@@ -372,31 +375,13 @@ router.delete('/:userId/sub-users/:subUserId', auth, async (req, res) => {
 });
 
 // Bulk assign devices to user
-router.post('/:userId/assign-devices', auth, async (req, res) => {
+router.post('/:userId/assign-devices', auth, validateDeviceAssignment, async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
   
   try {
     const { userId } = req.params;
     const { deviceIds } = req.body;
-
-    // Validate input
-    if (!deviceIds || !Array.isArray(deviceIds) || deviceIds.length === 0) {
-      return res.status(400).json({ 
-        success: false,
-        message: 'Invalid device IDs provided'
-      });
-    }
-
-    // Validate all IDs are valid MongoDB IDs
-    const invalidIds = deviceIds.filter(id => !mongoose.Types.ObjectId.isValid(id));
-    if (invalidIds.length > 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid device IDs',
-        invalidIds
-      });
-    }
 
     // Check user exists
     const user = await User.findById(userId).session(session);
@@ -408,37 +393,18 @@ router.post('/:userId/assign-devices', auth, async (req, res) => {
     }
 
     // Get available devices
-    const availableDevices = await Device.find({
-      _id: { $in: deviceIds },
-      $or: [
-        { assignedTo: { $exists: false } },
-        { assignedTo: null }
-      ]
-    }).session(session);
-
+    const availableDevices = await DeviceService.getAvailableDevices(deviceIds, session);
     if (availableDevices.length !== deviceIds.length) {
-      const assignedDevices = deviceIds.filter(id => 
-        !availableDevices.some(d => d._id.toString() === id)
-      );
       return res.status(400).json({
         success: false,
         message: 'Some devices are already assigned',
-        assignedDevices
+        count: availableDevices.length
       });
     }
 
-    // Assign devices
-    await User.findByIdAndUpdate(
-      userId,
-      { $addToSet: { assignedDevices: { $each: deviceIds } } },
-      { session }
-    );
-
-    await Device.updateMany(
-      { _id: { $in: deviceIds } },
-      { $set: { assignedTo: userId } },
-      { session }
-    );
+    // Perform assignments
+    await DeviceService.assignDevices(deviceIds, userId, session);
+    await UserService.addDevicesToUser(userId, deviceIds, session);
 
     await session.commitTransaction();
     res.json({ 
@@ -452,6 +418,46 @@ router.post('/:userId/assign-devices', auth, async (req, res) => {
     res.status(500).json({ 
       success: false,
       message: 'Server error during device assignment'
+    });
+  } finally {
+    session.endSession();
+  }
+});
+
+// Bulk unassign devices from user
+router.post('/:userId/unassign-devices', auth, validateDeviceAssignment, async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+  
+  try {
+    const { userId } = req.params;
+    const { deviceIds } = req.body;
+
+    // Check user exists
+    const user = await User.findById(userId).session(session);
+    if (!user) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'User not found' 
+      });
+    }
+
+    // Perform unassignments
+    await DeviceService.unassignDevices(deviceIds, userId, session);
+    await UserService.removeDevicesFromUser(userId, deviceIds, session);
+
+    await session.commitTransaction();
+    res.json({ 
+      success: true,
+      message: 'Devices unassigned successfully',
+      count: deviceIds.length
+    });
+  } catch (error) {
+    await session.abortTransaction();
+    console.error('Bulk unassignment error:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Server error during device unassignment'
     });
   } finally {
     session.endSession();

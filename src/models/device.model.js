@@ -61,6 +61,11 @@ const deviceSchema = new mongoose.Schema({
       },
       message: props => `${props.value} is not a valid ObjectId!`
     }
+  },
+  assignedTo: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    index: true
   }
 }, {
   timestamps: true,
@@ -97,6 +102,11 @@ const deviceSchema = new mongoose.Schema({
         ret.assignedUserId = ret.assignedUserId.toString();
       }
       
+      // Convert assignedTo to string if it exists
+      if (ret.assignedTo) {
+        ret.assignedTo = ret.assignedTo.toString();
+      }
+      
       return ret;
     }
   }
@@ -105,11 +115,15 @@ const deviceSchema = new mongoose.Schema({
 // Add index for faster queries
 deviceSchema.index({ deviceId: 1 });
 deviceSchema.index({ assignedUserId: 1 });
+deviceSchema.index({ assignedTo: 1 });
 
 // Pre-save middleware to validate ObjectId
 deviceSchema.pre('save', function(next) {
   if (this.assignedUserId && !mongoose.Types.ObjectId.isValid(this.assignedUserId)) {
     next(new Error('Invalid assignedUserId format'));
+  }
+  if (this.assignedTo && !mongoose.Types.ObjectId.isValid(this.assignedTo)) {
+    next(new Error('Invalid assignedTo format'));
   }
   next();
 });
