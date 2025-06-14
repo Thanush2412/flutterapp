@@ -1,0 +1,54 @@
+{
+  "devices": [
+    {
+      "deviceId": "DEVICE_001",
+      "name": "Temperature Sensor 1",
+      "type": "sensor",
+      "macAddress": "00:11:22:33:44:55",
+      "location": "Room 101",
+      "status": "active",
+      "temperature": 25.5,
+      "humidity": 60
+    },
+    {
+      "deviceId": "DEVICE_002",
+      "name": "Temperature Sensor 2",
+      "type": "sensor",
+      "macAddress": "00:11:22:33:44:56",
+      "location": "Room 102",
+      "status": "active",
+      "temperature": 26.0,
+      "humidity": 55
+    },
+    {
+      "deviceId": "DEVICE_003",
+      "name": "Temperature Sensor 3",
+      "type": "sensor",
+      "macAddress": "00:11:22:33:44:57",
+      "location": "Room 103",
+      "status": "active",
+      "temperature": 24.5,
+      "humidity": 65
+    },
+    {
+      "deviceId": "DEVICE_004",
+      "name": "Temperature Sensor 4",
+      "type": "sensor",
+      "macAddress": "00:11:22:33:44:58",
+      "location": "Room 104",
+      "status": "active",
+      "temperature": 27.0,
+      "humidity": 58
+    },
+    {
+      "deviceId": "DEVICE_005",
+      "name": "Temperature Sensor 5",
+      "type": "sensor",
+      "macAddress": "00:11:22:33:44:59",
+      "location": "Room 105",
+      "status": "active",
+      "temperature": 25.0,
+      "humidity": 62
+    }
+  ]
+} 

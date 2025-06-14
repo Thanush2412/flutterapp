@@ -1,0 +1,40 @@
+{
+  "name": "jsw-smart-save-backend",
+  "version": "1.0.0",
+  "description": "Backend API for JSW Smart Save IoT Monitoring System",
+  "main": "src/index.js",
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
+    "create-admin": "node src/scripts/create-admin.js",
+    "create-devices": "node src/scripts/create-sample-devices.js",
+    "test-db": "node src/scripts/test-connection.js",
+    "vercel-build": "echo 'Build step completed'"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.0.3",
+    "express": "^4.18.2",
+    "express-rate-limit": "^6.7.0",
+    "helmet": "^7.0.0",
+    "jsonwebtoken": "^9.0.0",
+    "mongoose": "^7.0.3",
+    "morgan": "^1.10.0"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.22"
+  },
+  "keywords": [
+    "iot",
+    "monitoring",
+    "api",
+    "express",
+    "mongodb"
+  ],
+  "author": "JSW Smart Save Team",
+  "license": "MIT"
+} 
