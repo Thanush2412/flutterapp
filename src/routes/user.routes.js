@@ -3,6 +3,8 @@ const User = require('../models/user.model');
 const Device = require('../models/device.model');
 const { auth, adminAuth } = require('../middleware/auth.middleware');
 const mongoose = require('mongoose');
+const jwt = require('jsonwebtoken');
+const config = require('../config/config');
 
 const router = express.Router();
 
