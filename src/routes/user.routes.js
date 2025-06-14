@@ -428,6 +428,12 @@ router.post('/:userId/assign-devices', auth, async (req, res) => {
     }
 
     // Assign devices
+    await User.findByIdAndUpdate(
+      userId,
+      { $addToSet: { assignedDevices: { $each: deviceIds } } },
+      { session }
+    );
+
     await Device.updateMany(
       { _id: { $in: deviceIds } },
       { $set: { assignedTo: userId } },
